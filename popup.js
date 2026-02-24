@@ -15,11 +15,9 @@ async function convertAndDownload() {
 
   const format = document.querySelector("input[name='fmt']:checked").value;
 
-  // Fetch the original image as blob
   const response = await fetch(imageUrl);
   const blob = await response.blob();
 
-  // Draw on canvas to convert
   const bitmap = await createImageBitmap(blob);
 
   const canvas = document.createElement("canvas");
@@ -29,12 +27,10 @@ async function convertAndDownload() {
   const ctx = canvas.getContext("2d");
   ctx.drawImage(bitmap, 0, 0);
 
-  // Convert to target format
   const convertedBlob = await new Promise(resolve =>
     canvas.toBlob(resolve, `image/${format}`)
   );
 
-  // Download
   const url = URL.createObjectURL(convertedBlob);
 
   chrome.downloads.download({
