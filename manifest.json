@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Image Downloader & Converter",
-  "version": "1.0",
-  "description": "Download any image in JPEG/JPG/PNG format.",
+  "version": "1.2",
+  "description": "Download any image in JPG, PNG, WEBP, ICO, BMP, GIF formats.",
   "permissions": ["contextMenus", "downloads", "activeTab", "scripting", "storage"],
   "background": {
     "service_worker": "background.js"
