@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      width: 250px;
+      font-family: sans-serif;
+      padding: 10px;
+    }
+    img {
+      max-width: 100%;
+      border: 1px solid #ccc;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h3>Convert Image</h3>
+
+  <img id="preview" />
+
+  <label><input type="radio" name="fmt" value="jpg" checked> JPG</label><br>
+  <label><input type="radio" name="fmt" value="jpeg"> JPEG</label><br>
+  <label><input type="radio" name="fmt" value="png"> PNG</label><br><br>
+
+  <button id="downloadBtn">Convert & Download</button>
+
+  <script src="popup.js"></script>
+</body>
+</html>
