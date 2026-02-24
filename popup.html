@@ -1,45 +1,39 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <style>
-    body {
-      width: 250px;
-      padding: 10px;
-      font-family: sans-serif;
-    }
-    img {
-      max-width: 100%;
-      border: 1px solid #ccc;
-      margin-bottom: 10px;
-    }
-    input[type="text"] {
-      width: 100%;
-      margin-bottom: 10px;
-      padding: 5px;
-    }
-  </style>
-</head>
-<body>
+  <head>
+    <style>
+      body { font-family: Arial; width: 300px; padding: 12px; }
+      img { width: 100%; border-radius: 4px; margin-bottom: 8px; }
+      select, input {
+        width: 100%;
+        padding: 6px;
+        margin-bottom: 10px;
+      }
+      button {
+        width: 100%;
+        padding: 10px;
+        background: black;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>Convert & Download</h3>
+    <img id="preview" />
+    <input id="filename" placeholder="filename" />
+    <select id="format">
+      <option value="jpg">JPG</option>
+      <option value="jpeg">JPEG</option>
+      <option value="png">PNG</option>
+      <option value="webp">WEBP</option>
+      <option value="ico">ICO</option>
+    </select>
+    <button id="downloadBtn">Convert & Download</button>
 
-  <h3>Convert Image</h3>
-
-  <img id="preview" />
-
-  <input id="filename" placeholder="File name">
-
-  <!-- Existing formats -->
-  <label><input type="radio" name="fmt" value="jpg" checked> JPG</label><br>
-  <label><input type="radio" name="fmt" value="jpeg"> JPEG</label><br>
-  <label><input type="radio" name="fmt" value="png"> PNG</label><br>
-
-  <!-- NEW formats -->
-  <label><input type="radio" name="fmt" value="webp"> WEBP</label><br>
-  <label><input type="radio" name="fmt" value="ico"> ICO</label><br>
-  <label><input type="radio" name="fmt" value="bmp"> BMP</label><br>
-  <label><input type="radio" name="fmt" value="gif"> GIF</label><br><br>
-
-  <button id="downloadBtn">Convert & Download</button>
-
-  <script src="popup.js"></script>
-</body>
+    <script src="popup.js"></script>
+  </body>
 </html>

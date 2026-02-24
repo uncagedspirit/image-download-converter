@@ -1,58 +1,46 @@
-let imageUrl = null;
+let imageUrl = "";
+const preview = document.getElementById("preview");
+const filenameInput = document.getElementById("filename");
+const downloadBtn = document.getElementById("downloadBtn");
+const formatSelect = document.getElementById("format");
 
-document.addEventListener("DOMContentLoaded", async () => {
-  const data = await chrome.storage.local.get("imageUrl");
+chrome.storage.local.get("imageUrl", async (data) => {
   imageUrl = data.imageUrl;
+  preview.src = imageUrl;
 
-  document.getElementById("preview").src = imageUrl;
-
-  document.getElementById("downloadBtn")
-    .addEventListener("click", convertAndDownload);
+  const parsedName = imageUrl.split("/").pop().split("?")[0];
+  const baseName = parsedName.replace(/\.[^.]+$/, "") || "image";
+  filenameInput.value = baseName;
 });
 
-// Prevent double extensions
-function sanitizeFilename(name, format) {
-  const lower = name.toLowerCase();
-  if (lower.endsWith("." + format)) {
-    return name;
-  }
-  return `${name}.${format}`;
+//TODO: JPG format not working, fix it by using canvas.toDataURL instead of toBlob for JPG and then converting the data URL back to a blob.
+
+function convertAndDownload() {
+  const format = formatSelect.value;
+  const filename = filenameInput.value.trim() || "image";
+
+  fetch(imageUrl)
+    .then((res) => res.blob())
+    .then((blob) => createImageBitmap(blob))
+    .then((bitmap) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(bitmap, 0, 0);
+
+      canvas.toBlob(
+        (convertedBlob) => {
+          const blobUrl = URL.createObjectURL(convertedBlob);
+
+          chrome.downloads.download({
+            url: blobUrl,
+            filename: `${filename}.${format}`
+          });
+        },
+        `image/${format}`
+      );
+    });
 }
 
-async function convertAndDownload() {
-  if (!imageUrl) return;
-
-  const format = document.querySelector("input[name='fmt']:checked").value;
-
-  const filenameInput = document.getElementById("filename").value.trim();
-  if (!filenameInput) {
-    alert("Please enter a file name.");
-    return;
-  }
-
-  const finalName = sanitizeFilename(filenameInput, format);
-
-  const response = await fetch(imageUrl);
-  const blob = await response.blob();
-
-  const bitmap = await createImageBitmap(blob);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
-
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(bitmap, 0, 0);
-
-  // Convert
-  const convertedBlob = await new Promise(resolve =>
-    canvas.toBlob(resolve, `image/${format}`)
-  );
-
-  const url = URL.createObjectURL(convertedBlob);
-
-  chrome.downloads.download({
-    url,
-    filename: finalName
-  });
-}
+downloadBtn.addEventListener("click", convertAndDownload);
