@@ -2,14 +2,39 @@
 <html>
   <head>
     <style>
-      body { font-family: Arial; width: 300px; padding: 12px; }
-      img { width: 100%; border-radius: 4px; margin-bottom: 8px; }
-      select, input {
+      body {
+        font-family: Arial;
+        width: 300px;
+        padding: 12px;
+        box-sizing: border-box;
+      }
+
+      h3 { margin-top: 0; }
+
+      img {
+        width: 100%;
+        border-radius: 4px;
+        margin-bottom: 8px;
+        display: block;
+        min-height: 40px;
+        background: #f0f0f0;
+      }
+
+      input, select {
         width: 100%;
         padding: 6px;
         margin-bottom: 10px;
         box-sizing: border-box;
+        border: 1px solid #ccc;
+        border-radius: 4px;
       }
+
+      /* Grey out unsupported options visually */
+      option:disabled {
+        color: #aaa;
+        font-style: italic;
+      }
+
       button {
         width: 100%;
         padding: 10px;
@@ -21,20 +46,26 @@
         font-weight: bold;
       }
       button:disabled {
-        opacity: 0.5;
+        opacity: 0.45;
         cursor: not-allowed;
       }
+
       #statusMsg {
         margin-top: 8px;
         font-size: 12px;
-        min-height: 16px;
+        min-height: 18px;
         text-align: center;
+        border-radius: 4px;
+        padding: 0 4px;
       }
+      #statusMsg.error   { color: #c0392b; }
+      #statusMsg.success { color: #27ae60; }
+      #statusMsg.info    { color: #555; }
     </style>
   </head>
   <body>
-    <h3>Convert & Download</h3>
-    <img id="preview" />
+    <h3>Convert &amp; Download</h3>
+    <img id="preview" alt="Image preview" />
     <input id="filename" placeholder="filename" />
     <select id="format">
       <option value="jpg">JPG</option>
@@ -46,9 +77,9 @@
       <option value="tiff">TIFF</option>
       <option value="ico">ICO</option>
     </select>
-    <button id="downloadBtn">Convert & Download</button>
+    <button id="downloadBtn">Convert &amp; Download</button>
     <div id="statusMsg"></div>
 
     <script src="popup.js"></script>
   </body>
-</html>   
+</html>

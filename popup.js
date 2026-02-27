@@ -7,20 +7,67 @@ const statusMsg = document.getElementById("statusMsg");
 
 const MIME_TYPES = {
   jpg:  "image/jpeg",
-  jpeg: "image/jpeg",
   png:  "image/png",
   webp: "image/webp",
+  avif: "image/avif",
   bmp:  "image/bmp",
   gif:  "image/gif",
   tiff: "image/tiff",
-  avif: "image/avif",
   ico:  "image/x-icon",
 };
 
+// ---------------------------------------------------------------------------
+// Format support detection
+// Browsers silently fall back to PNG when they don't support a MIME type in
+// toDataURL/toBlob, so we detect support by encoding a 1×1 canvas and checking
+// whether the result actually starts with the expected MIME type.
+// ---------------------------------------------------------------------------
+function checkFormatSupport() {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 1;
+  canvas.getContext("2d").fillRect(0, 0, 1, 1);
+
+  Array.from(formatSelect.options).forEach((option) => {
+    const mime = MIME_TYPES[option.value];
+    if (!mime) return;
+
+    // JPEG uses toDataURL for reliability (see convertAndDownload), so test it the same way
+    if (mime === "image/jpeg") {
+      const result = canvas.toDataURL("image/jpeg");
+      const supported = result.startsWith("data:image/jpeg");
+      markOption(option, supported);
+      return;
+    }
+
+    // For everything else, test via toDataURL synchronously
+    const result = canvas.toDataURL(mime);
+    // If the browser doesn't support the format it returns a PNG data URL regardless
+    const supported = result.startsWith(`data:${mime}`);
+    markOption(option, supported);
+  });
+
+  // If the currently selected option is unsupported, auto-select the first supported one
+  if (formatSelect.selectedOptions[0]?.disabled) {
+    const firstSupported = Array.from(formatSelect.options).find((o) => !o.disabled);
+    if (firstSupported) firstSupported.selected = true;
+  }
+}
+
+function markOption(option, supported) {
+  if (!supported) {
+    option.disabled = true;
+    option.title = `${option.value.toUpperCase()} is not supported by this browser`;
+    option.textContent = `${option.value.toUpperCase()} (not supported)`;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Image loading
+// ---------------------------------------------------------------------------
 chrome.storage.local.get("imageUrl", (data) => {
   imageUrl = data.imageUrl;
   if (!imageUrl) {
-    setStatus("No image URL found. Right-click an image and use 'Download With Format…'", "error");
+    setStatus("No image URL found. Right-click an image and choose 'Download With Format…'", "error");
     return;
   }
   preview.src = imageUrl;
@@ -29,9 +76,20 @@ chrome.storage.local.get("imageUrl", (data) => {
   filenameInput.value = baseName;
 });
 
+// Run detection immediately on popup open
+checkFormatSupport();
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 function setStatus(msg, type = "info") {
   statusMsg.textContent = msg;
-  statusMsg.style.color = type === "error" ? "#c0392b" : "#27ae60";
+  statusMsg.className = type; // CSS handles colour via class
+}
+
+function clearStatus() {
+  statusMsg.textContent = "";
+  statusMsg.className = "";
 }
 
 function dataURLtoBlob(dataURL) {
@@ -43,8 +101,11 @@ function dataURLtoBlob(dataURL) {
   return new Blob([buffer], { type: mime });
 }
 
+// ---------------------------------------------------------------------------
+// Conversion + download
+// ---------------------------------------------------------------------------
 function drawAndDownload(source, format, filename) {
-  const mimeType = MIME_TYPES[format] || `image/${format}`;
+  const mimeType = MIME_TYPES[format];
 
   const canvas = document.createElement("canvas");
   canvas.width = source.naturalWidth || source.width;
@@ -60,25 +121,26 @@ function drawAndDownload(source, format, filename) {
 
   const triggerDownload = (blob) => {
     const blobUrl = URL.createObjectURL(blob);
-    chrome.downloads.download({ url: blobUrl, filename: `${filename}.${format}` }, (downloadId) => {
+    chrome.downloads.download({ url: blobUrl, filename: `${filename}.${format}` }, () => {
       if (chrome.runtime.lastError) {
         setStatus("Download failed: " + chrome.runtime.lastError.message, "error");
       } else {
-        setStatus("✓ Download started!");
+        setStatus("✓ Download started!", "success");
         setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
       }
       downloadBtn.disabled = false;
     });
   };
 
+  // toBlob with "image/jpg" silently falls back to PNG in most browsers,
+  // so we use toDataURL for JPEG which is reliable, then convert back to Blob.
   if (mimeType === "image/jpeg") {
-    // toBlob with "image/jpg" silently falls back to PNG in most browsers;
-    // toDataURL("image/jpeg") is reliable, so we use that and convert back to Blob.
     triggerDownload(dataURLtoBlob(canvas.toDataURL("image/jpeg", 0.92)));
   } else {
     canvas.toBlob((blob) => {
       if (!blob) {
-        setStatus(`${format.toUpperCase()} is not supported by this browser.`, "error");
+        // Shouldn't normally reach here since we pre-checked, but just in case
+        setStatus(`Conversion to ${format.toUpperCase()} failed unexpectedly.`, "error");
         downloadBtn.disabled = false;
         return;
       }
@@ -96,12 +158,11 @@ function convertAndDownload() {
     return;
   }
 
+  clearStatus();
   setStatus("Converting…");
   downloadBtn.disabled = true;
 
-  // Attempt 1: fetch() as a blob.
-  // This works reliably when host_permissions in manifest.json covers the image's origin,
-  // which lets the extension bypass CORS. Without it, fetch() throws a CORS error.
+  // Attempt 1: fetch() as a blob. Works when host_permissions covers the origin.
   fetch(imageUrl)
     .then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -109,18 +170,14 @@ function convertAndDownload() {
     })
     .then((blob) => createImageBitmap(blob))
     .then((bitmap) => {
-      // createImageBitmap returns a bitmap, not an HTMLImageElement.
-      // Wrap it in a canvas so drawAndDownload can call drawImage() on it.
       const offscreen = new OffscreenCanvas(bitmap.width, bitmap.height);
       offscreen.getContext("2d").drawImage(bitmap, 0, 0);
-      // OffscreenCanvas doesn't have naturalWidth, patch it:
       offscreen.naturalWidth = bitmap.width;
       offscreen.naturalHeight = bitmap.height;
       drawAndDownload(offscreen, format, filename);
     })
     .catch((fetchErr) => {
-      // Attempt 2: fetch() failed (likely CORS). Try loading with crossOrigin="anonymous"
-      // so the canvas doesn't get tainted and we can still call toBlob/toDataURL.
+      // Attempt 2: fetch() blocked (CORS). Retry with crossOrigin="anonymous".
       console.warn("fetch() blocked, trying crossOrigin img fallback:", fetchErr.message);
       const img = new Image();
       img.crossOrigin = "anonymous";
@@ -128,17 +185,14 @@ function convertAndDownload() {
         try {
           drawAndDownload(img, format, filename);
         } catch (e) {
-          // Canvas is tainted — server doesn't send CORS headers.
           setStatus("CORS blocked. Add '<all_urls>' to host_permissions in manifest.json.", "error");
           downloadBtn.disabled = false;
-          console.error(e);
         }
       };
       img.onerror = () => {
         setStatus("Failed to load image. It may require login or block hotlinking.", "error");
         downloadBtn.disabled = false;
       };
-      // Cache-bust so the browser makes a fresh request with the CORS header
       img.src = imageUrl + (imageUrl.includes("?") ? "&" : "?") + "_cb=" + Date.now();
     });
 }
